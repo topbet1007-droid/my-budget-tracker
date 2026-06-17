@@ -24,3 +24,8 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => registration.unregister());
+  });
+}
