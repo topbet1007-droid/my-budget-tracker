@@ -33,7 +33,6 @@ const DEFAULT_CATEGORIES = [
   { id: "fun", name: "Going out", budget: 3000 },
 ];
 
-const PAYMENT_METHODS = ["Cash", "GCash", "Credit card"];
 
 const WALLET_COLORS = [
   { from: "#2BB792", to: "#1E8F73" }, // teal/green
@@ -261,7 +260,8 @@ export default function Ledger() {
   const [txCat, setTxCat] = useState("");
   const [txAmount, setTxAmount] = useState("");
   const [txNote, setTxNote] = useState("");
-  const [txMethod, setTxMethod] = useState("Cash");
+  const [txWalletId, setTxWalletId] = useState("");
+  const [txError, setTxError] = useState("");
   const [txDate, setTxDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const [showAddWallet, setShowAddWallet] = useState(false);
@@ -278,7 +278,8 @@ export default function Ledger() {
   const [newBillAmount, setNewBillAmount] = useState("");
   const [newBillDue, setNewBillDue] = useState("");
   const [billSettleFor, setBillSettleFor] = useState(null);
-  const [billSettleMethod, setBillSettleMethod] = useState("Cash");
+  const [billSettleWalletId, setBillSettleWalletId] = useState("");
+  const [billSettleError, setBillSettleError] = useState("");
 
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [newGoalName, setNewGoalName] = useState("");
@@ -290,9 +291,9 @@ export default function Ledger() {
   const [newDebtName, setNewDebtName] = useState("");
   const [newDebtAmount, setNewDebtAmount] = useState("");
   const [newDebtDirection, setNewDebtDirection] = useState("owe"); // owe = I owe them, owed = they owe me
-  const [newDebtMethod, setNewDebtMethod] = useState("Cash");
   const [debtSettleFor, setDebtSettleFor] = useState(null);
-  const [debtSettleMethod, setDebtSettleMethod] = useState("Cash");
+  const [debtSettleWalletId, setDebtSettleWalletId] = useState("");
+  const [debtSettleError, setDebtSettleError] = useState("");
 
   const saveTimer = useRef(null);
 
@@ -411,11 +412,12 @@ export default function Ledger() {
   for (const c of categories) spentByCat[c.id] = 0;
   for (const t of txs) spentByCat[t.catId] = (spentByCat[t.catId] || 0) + t.amount;
 
+  const walletName = (id) => wallets.find((w) => w.id === id)?.name || "Unknown wallet";
   const spentByMethod = {};
-  for (const m of PAYMENT_METHODS) spentByMethod[m] = 0;
-  for (const t of txs) { const m = t.method || "Cash"; spentByMethod[m] = (spentByMethod[m] || 0) + t.amount; }
-  for (const b of bills) { if (b.paid && b.method) spentByMethod[b.method] = (spentByMethod[b.method] || 0) + b.amount; }
-  for (const e of debtLog) { if (e.action === "settled" && e.method && e.direction === "owe") spentByMethod[e.method] = (spentByMethod[e.method] || 0) + e.amount; }
+  for (const w of wallets) spentByMethod[w.id] = 0;
+  for (const t of txs) { if (t.walletId) spentByMethod[t.walletId] = (spentByMethod[t.walletId] || 0) + t.amount; }
+  for (const b of bills) { if (b.paid && b.walletId) spentByMethod[b.walletId] = (spentByMethod[b.walletId] || 0) + b.amount; }
+  for (const e of debtLog) { if (e.action === "settled" && e.walletId && e.direction === "owe") spentByMethod[e.walletId] = (spentByMethod[e.walletId] || 0) + e.amount; }
 
   const totalBudget = categories.reduce((s, c) => s + c.budget, 0);
   const totalSpent = Object.values(spentByCat).reduce((s, v) => s + v, 0);
@@ -452,12 +454,25 @@ export default function Ledger() {
   }
   function addTransaction() {
     const amount = parseFloat(txAmount);
+    setTxError("");
     if (!txCat || isNaN(amount) || amount <= 0) return;
-    const newTx = { id: uid(), catId: txCat, amount, note: txNote.trim(), method: txMethod, date: txDate };
+    if (!txWalletId) { setTxError("Please select a wallet to pay from."); return; }
+    const wallet = wallets.find((w) => w.id === txWalletId);
+    if (!wallet) { setTxError("Selected wallet no longer exists."); return; }
+    if (wallet.balance < amount) {
+      setTxError(`Insufficient funds in ${wallet.name} (₱${fmt(wallet.balance)} available).`);
+      return;
+    }
+    const newTx = { id: uid(), catId: txCat, amount, note: txNote.trim(), walletId: txWalletId, date: txDate };
     updateMonth((m) => ({ ...m, transactions: [...(m.transactions || []), newTx] }));
-    setTxAmount(""); setTxNote(""); setShowAddTx(false);
+    setWallets((p) => p.map((w) => w.id === txWalletId ? { ...w, balance: w.balance - amount } : w));
+    setTxAmount(""); setTxNote(""); setShowAddTx(false); setTxError("");
   }
   function removeTransaction(id) {
+    const tx = txs.find((t) => t.id === id);
+    if (tx && tx.walletId) {
+      setWallets((p) => p.map((w) => w.id === tx.walletId ? { ...w, balance: w.balance + tx.amount } : w));
+    }
     updateMonth((m) => ({ ...m, transactions: (m.transactions || []).filter((t) => t.id !== id) }));
   }
   const catName = (id) => categories.find((c) => c.id === id)?.name || "Uncategorized";
@@ -487,25 +502,44 @@ export default function Ledger() {
   function addBill() {
     const name = newBillName.trim(); const amount = parseFloat(newBillAmount);
     if (!name || isNaN(amount)) return;
-    setBills((p) => [...p, { id: uid(), name, amount, due: newBillDue, paid: false, method: null, settledDate: null }]);
+    setBills((p) => [...p, { id: uid(), name, amount, due: newBillDue, paid: false, walletId: null, settledDate: null }]);
     setNewBillName(""); setNewBillAmount(""); setNewBillDue(""); setShowAddBill(false);
   }
   function openBillSettle(id) {
     const bill = bills.find((b) => b.id === id);
     if (bill?.paid) {
-      // unmark as paid, no method needed
-      setBills((p) => p.map((b) => b.id === id ? { ...b, paid: false, method: null, settledDate: null } : b));
+      // unmark as paid: restore the wallet balance that was deducted
+      if (bill.walletId) {
+        setWallets((p) => p.map((w) => w.id === bill.walletId ? { ...w, balance: w.balance + bill.amount } : w));
+      }
+      setBills((p) => p.map((b) => b.id === id ? { ...b, paid: false, walletId: null, settledDate: null } : b));
       return;
     }
-    setBillSettleMethod("Cash");
+    setBillSettleWalletId(""); setBillSettleError("");
     setBillSettleFor(id);
   }
   function confirmBillSettle() {
     if (!billSettleFor) return;
-    setBills((p) => p.map((b) => b.id === billSettleFor ? { ...b, paid: true, method: billSettleMethod, settledDate: new Date().toISOString().slice(0, 10) } : b));
+    setBillSettleError("");
+    if (!billSettleWalletId) { setBillSettleError("Please select a wallet."); return; }
+    const bill = bills.find((b) => b.id === billSettleFor);
+    const wallet = wallets.find((w) => w.id === billSettleWalletId);
+    if (!bill || !wallet) return;
+    if (wallet.balance < bill.amount) {
+      setBillSettleError(`Insufficient funds in ${wallet.name} (₱${fmt(wallet.balance)} available).`);
+      return;
+    }
+    setBills((p) => p.map((b) => b.id === billSettleFor ? { ...b, paid: true, walletId: billSettleWalletId, settledDate: new Date().toISOString().slice(0, 10) } : b));
+    setWallets((p) => p.map((w) => w.id === billSettleWalletId ? { ...w, balance: w.balance - bill.amount } : w));
     setBillSettleFor(null);
   }
-  function removeBill(id) { setBills((p) => p.filter((b) => b.id !== id)); }
+  function removeBill(id) {
+    const bill = bills.find((b) => b.id === id);
+    if (bill?.paid && bill.walletId) {
+      setWallets((p) => p.map((w) => w.id === bill.walletId ? { ...w, balance: w.balance + bill.amount } : w));
+    }
+    setBills((p) => p.filter((b) => b.id !== id));
+  }
 
   /* ---------- Actions: goals ---------- */
   function addGoal() {
@@ -527,23 +561,32 @@ export default function Ledger() {
     const name = newDebtName.trim(); const amount = parseFloat(newDebtAmount);
     if (!name || isNaN(amount)) return;
     const id = uid();
-    setDebts((p) => [...p, { id, name, amount, direction: newDebtDirection, method: newDebtMethod }]);
-    setDebtLog((p) => [...p, { id: uid(), name, amount, direction: newDebtDirection, method: newDebtMethod, action: "added", date: new Date().toISOString().slice(0, 10) }]);
+    setDebts((p) => [...p, { id, name, amount, direction: newDebtDirection }]);
+    setDebtLog((p) => [...p, { id: uid(), name, amount, direction: newDebtDirection, walletId: null, action: "added", date: new Date().toISOString().slice(0, 10) }]);
     setNewDebtName(""); setNewDebtAmount(""); setShowAddDebt(false);
   }
   function removeDebt(id) {
     const d = debts.find((x) => x.id === id);
-    if (d) setDebtLog((p) => [...p, { id: uid(), name: d.name, amount: d.amount, direction: d.direction, method: d.method, action: "removed", date: new Date().toISOString().slice(0, 10) }]);
+    if (d) setDebtLog((p) => [...p, { id: uid(), name: d.name, amount: d.amount, direction: d.direction, walletId: null, action: "removed", date: new Date().toISOString().slice(0, 10) }]);
     setDebts((p) => p.filter((x) => x.id !== id));
   }
   function openDebtSettle(id) {
-    setDebtSettleMethod("Cash");
+    setDebtSettleWalletId(""); setDebtSettleError("");
     setDebtSettleFor(id);
   }
   function confirmDebtSettle() {
     const d = debts.find((x) => x.id === debtSettleFor);
     if (!d) return;
-    setDebtLog((p) => [...p, { id: uid(), name: d.name, amount: d.amount, direction: d.direction, method: debtSettleMethod, action: "settled", date: new Date().toISOString().slice(0, 10) }]);
+    setDebtSettleError("");
+    if (!debtSettleWalletId) { setDebtSettleError("Please select a wallet."); return; }
+    const wallet = wallets.find((w) => w.id === debtSettleWalletId);
+    if (!wallet) return;
+    if (d.direction === "owe" && wallet.balance < d.amount) {
+      setDebtSettleError(`Insufficient funds in ${wallet.name} (₱${fmt(wallet.balance)} available).`);
+      return;
+    }
+    setDebtLog((p) => [...p, { id: uid(), name: d.name, amount: d.amount, direction: d.direction, walletId: debtSettleWalletId, action: "settled", date: new Date().toISOString().slice(0, 10) }]);
+    setWallets((p) => p.map((w) => w.id === debtSettleWalletId ? { ...w, balance: d.direction === "owe" ? w.balance - d.amount : w.balance + d.amount } : w));
     setDebts((p) => p.filter((x) => x.id !== debtSettleFor));
     setDebtSettleFor(null);
   }
@@ -696,16 +739,20 @@ export default function Ledger() {
               </div>
 
               <div>
-                <SectionHeader title="By payment method" action={<span style={{ fontSize: 11, color: C.inkMuted }}>incl. paid bills & settled debts</span>} />
+                <SectionHeader title="By wallet" action={<span style={{ fontSize: 11, color: C.inkMuted }}>incl. paid bills & settled debts</span>} />
                 <Card style={{ padding: "16px 18px", marginBottom: 16 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 12 }}>
-                    {PAYMENT_METHODS.map((m) => (
-                      <div key={m}>
-                        <div style={{ fontSize: 11, color: C.inkMuted, fontWeight: 600, marginBottom: 4 }}>{m}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 600 }}>₱{fmt(spentByMethod[m] || 0)}</div>
-                      </div>
-                    ))}
-                  </div>
+                  {wallets.length === 0 ? (
+                    <div style={{ fontSize: 13, color: C.inkMuted }}>No wallets yet — add one in the Wallets tab.</div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 12 }}>
+                      {wallets.map((w) => (
+                        <div key={w.id}>
+                          <div style={{ fontSize: 11, color: C.inkMuted, fontWeight: 600, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.name}</div>
+                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 600 }}>₱{fmt(spentByMethod[w.id] || 0)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </Card>
 
                 <SectionHeader title="Transactions" action={
@@ -715,18 +762,22 @@ export default function Ledger() {
                   </div>
                 } />
                 {showAddTx && (
-                  <Card style={{ padding: "10px 12px", marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <select value={txCat} onChange={(e) => setTxCat(e.target.value)} style={{ ...inputBase, flex: "1 1 120px" }}>
-                      <option value="">Category</option>
-                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                    <input type="number" placeholder="Amount" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} style={{ ...numInputBase, flex: "1 1 80px" }} />
-                    <input type="text" placeholder="Note" value={txNote} onChange={(e) => setTxNote(e.target.value)} style={{ ...inputBase, flex: "2 1 120px" }} />
-                    <select value={txMethod} onChange={(e) => setTxMethod(e.target.value)} style={{ ...inputBase, flex: "1 1 100px" }}>
-                      {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                    <input type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} style={{ ...inputBase, flex: "1 1 120px" }} />
-                    <button onClick={addTransaction} style={btnPrimary}>Add</button>
+                  <Card style={{ padding: "10px 12px", marginBottom: 12 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <select value={txCat} onChange={(e) => setTxCat(e.target.value)} style={{ ...inputBase, flex: "1 1 120px" }}>
+                        <option value="">Category</option>
+                        {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <input type="number" placeholder="Amount" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} style={{ ...numInputBase, flex: "1 1 80px" }} />
+                      <input type="text" placeholder="Note" value={txNote} onChange={(e) => setTxNote(e.target.value)} style={{ ...inputBase, flex: "2 1 120px" }} />
+                      <select value={txWalletId} onChange={(e) => setTxWalletId(e.target.value)} style={{ ...inputBase, flex: "1 1 130px" }}>
+                        <option value="">Pay from wallet</option>
+                        {wallets.map((w) => <option key={w.id} value={w.id}>{w.name} (₱{fmt(w.balance)})</option>)}
+                      </select>
+                      <input type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} style={{ ...inputBase, flex: "1 1 120px" }} />
+                      <button onClick={addTransaction} style={btnPrimary}>Add</button>
+                    </div>
+                    {txError && <div style={{ fontSize: 12, color: C.bad, marginTop: 8, fontWeight: 600 }}>{txError}</div>}
                   </Card>
                 )}
                 <Card style={{ padding: 16, borderStyle: "dashed", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
@@ -895,7 +946,7 @@ export default function Ledger() {
                     </button>
                     <span style={{ flex: 1, minWidth: 100, fontWeight: 600, fontSize: 14, textDecoration: b.paid ? "line-through" : "none", color: b.paid ? C.inkMuted : C.ink }}>{b.name}</span>
                     {b.due && <span style={{ fontSize: 12, color: C.inkMuted, fontFamily: "'JetBrains Mono', monospace" }}>due {b.due}</span>}
-                    {b.paid && b.method && <Pill>{b.method}</Pill>}
+                    {b.paid && b.walletId && <Pill>{walletName(b.walletId)}</Pill>}
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>₱{fmt(b.amount)}</span>
                     <Pill tone={b.paid ? "good" : "accent"}>{b.paid ? `Paid ${b.settledDate || ""}` : "Unpaid"}</Pill>
                     <button onClick={() => removeBill(b.id)} style={iconBtn}><Trash2 size={14} /></button>
@@ -963,9 +1014,6 @@ export default function Ledger() {
                 </select>
                 <input type="text" placeholder="Person / name" value={newDebtName} onChange={(e) => setNewDebtName(e.target.value)} style={{ ...inputBase, flex: "2 1 140px" }} />
                 <input type="number" placeholder="Amount" value={newDebtAmount} onChange={(e) => setNewDebtAmount(e.target.value)} style={{ ...numInputBase, flex: "1 1 90px" }} />
-                <select value={newDebtMethod} onChange={(e) => setNewDebtMethod(e.target.value)} style={{ ...inputBase, flex: "1 1 110px" }}>
-                  {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
                 <button onClick={addDebt} style={btnPrimary}>Add</button>
                 <button onClick={() => setShowAddDebt(false)} style={iconBtn}><X size={15} /></button>
               </Card>
@@ -986,7 +1034,6 @@ export default function Ledger() {
                     {d.direction === "owe" ? <ArrowUpCircle size={16} color={C.bad} /> : <ArrowDownCircle size={16} color={C.good} />}
                     <span style={{ flex: 1, minWidth: 100, fontWeight: 600, fontSize: 14 }}>{d.name}</span>
                     <Pill tone={d.direction === "owe" ? "bad" : "good"}>{d.direction === "owe" ? "I owe" : "Owed to me"}</Pill>
-                    {d.method && <Pill>{d.method}</Pill>}
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>₱{fmt(d.amount)}</span>
                     <button onClick={() => openDebtSettle(d.id)} style={btnGhost}>Settle</button>
                     <button onClick={() => removeDebt(d.id)} style={iconBtn}><Trash2 size={14} /></button>
@@ -1005,7 +1052,7 @@ export default function Ledger() {
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", color: C.inkMuted, width: 90, flexShrink: 0 }}>{e.date}</span>
                     <span style={{ flex: 1, minWidth: 100, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
                     <Pill tone={e.direction === "owe" ? "bad" : "good"}>{e.direction === "owe" ? "I owe" : "Owed to me"}</Pill>
-                    {e.method && <Pill>{e.method}</Pill>}
+                    {e.walletId && <Pill>{walletName(e.walletId)}</Pill>}
                     <Pill tone={e.action === "settled" ? "good" : e.action === "removed" ? "neutral" : "accent"}>{e.action}</Pill>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>₱{fmt(e.amount)}</span>
                   </div>
@@ -1021,10 +1068,12 @@ export default function Ledger() {
       {billSettleFor && (
         <div onClick={() => setBillSettleFor(null)} style={{ position: "fixed", inset: 0, background: "rgba(28,35,33,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 50 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg, borderRadius: 16, border: `1px solid ${C.border}`, width: "100%", maxWidth: 360, padding: 20 }}>
-            <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 17, margin: "0 0 12px" }}>How did you pay this bill?</h3>
-            <select value={billSettleMethod} onChange={(e) => setBillSettleMethod(e.target.value)} style={{ ...inputBase, width: "100%", marginBottom: 14 }}>
-              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 17, margin: "0 0 12px" }}>Which wallet did you pay this with?</h3>
+            <select value={billSettleWalletId} onChange={(e) => setBillSettleWalletId(e.target.value)} style={{ ...inputBase, width: "100%", marginBottom: 10 }}>
+              <option value="">Select wallet</option>
+              {wallets.map((w) => <option key={w.id} value={w.id}>{w.name} (₱{fmt(w.balance)})</option>)}
             </select>
+            {billSettleError && <div style={{ fontSize: 12, color: C.bad, marginBottom: 10, fontWeight: 600 }}>{billSettleError}</div>}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={confirmBillSettle} style={{ ...btnPrimary, flex: 1 }}>Mark as paid</button>
               <button onClick={() => setBillSettleFor(null)} style={btnGhost}>Cancel</button>
@@ -1037,10 +1086,14 @@ export default function Ledger() {
       {debtSettleFor && (
         <div onClick={() => setDebtSettleFor(null)} style={{ position: "fixed", inset: 0, background: "rgba(28,35,33,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 50 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg, borderRadius: 16, border: `1px solid ${C.border}`, width: "100%", maxWidth: 360, padding: 20 }}>
-            <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 17, margin: "0 0 12px" }}>How was this debt settled?</h3>
-            <select value={debtSettleMethod} onChange={(e) => setDebtSettleMethod(e.target.value)} style={{ ...inputBase, width: "100%", marginBottom: 14 }}>
-              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 17, margin: "0 0 12px" }}>
+              {debts.find((d) => d.id === debtSettleFor)?.direction === "owe" ? "Which wallet did you pay from?" : "Which wallet did the payment go into?"}
+            </h3>
+            <select value={debtSettleWalletId} onChange={(e) => setDebtSettleWalletId(e.target.value)} style={{ ...inputBase, width: "100%", marginBottom: 10 }}>
+              <option value="">Select wallet</option>
+              {wallets.map((w) => <option key={w.id} value={w.id}>{w.name} (₱{fmt(w.balance)})</option>)}
             </select>
+            {debtSettleError && <div style={{ fontSize: 12, color: C.bad, marginBottom: 10, fontWeight: 600 }}>{debtSettleError}</div>}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={confirmDebtSettle} style={{ ...btnPrimary, flex: 1 }}>Settle</button>
               <button onClick={() => setDebtSettleFor(null)} style={btnGhost}>Cancel</button>
@@ -1072,7 +1125,7 @@ export default function Ledger() {
                         <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{catName(t.catId)}</span>
                         {t.note && <span style={{ fontSize: 12, color: C.inkMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.note}</span>}
                       </div>
-                      <Pill>{t.method || "Cash"}</Pill>
+                      <Pill>{walletName(t.walletId)}</Pill>
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>₱{fmt(t.amount)}</span>
                       <button onClick={() => removeTransaction(t.id)} style={iconBtn}><Trash2 size={14} /></button>
                     </div>
