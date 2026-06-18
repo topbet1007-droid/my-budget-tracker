@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import {
   Plus, Trash2, ChevronLeft, ChevronRight, PiggyBank, X, History,
   Download, Upload, Wallet, Receipt, Target, HandCoins, LayoutDashboard,
-  CheckCircle2, Circle, ArrowDownCircle, ArrowUpCircle
+  CheckCircle2, Circle, ArrowDownCircle, ArrowUpCircle, Utensils, ShoppingCart,
+  Car, Heart, TrendingUp
 } from "lucide-react";
 
 /* ---------- Design tokens ---------- */
@@ -42,6 +43,15 @@ const WALLET_COLORS = [
   { from: "#F08A3C", to: "#D96A1E" }, // orange
   { from: "#8B6FD9", to: "#6E4FC1" }, // purple
 ];
+
+const CATEGORY_STYLES = [
+  { icon: Utensils, bg: "#FCE8D9", fg: "#D9763B" },
+  { icon: ShoppingCart, bg: "#E0EBFA", fg: "#3D6FC9" },
+  { icon: Heart, bg: "#FBE2EC", fg: "#D14E83" },
+  { icon: Car, bg: "#FFF3D6", fg: "#C99A1F" },
+  { icon: Wallet, bg: "#E3EEE9", fg: "#1E8F73" },
+];
+function categoryStyle(index) { return CATEGORY_STYLES[index % CATEGORY_STYLES.length]; }
 
 function monthKey(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
 function monthLabel(key) { const [y, m] = key.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }); }
@@ -121,7 +131,7 @@ const btnPrimary = {
 
 const iconBtn = { border: "none", background: "transparent", cursor: "pointer", color: C.inkMuted, display: "flex", alignItems: "center", padding: 4 };
 
-/* ---------- Tab nav ---------- */
+/* ---------- Sidebar nav ---------- */
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "wallets", label: "Wallets", icon: Wallet },
@@ -130,45 +140,92 @@ const TABS = [
   { id: "debts", label: "Debts", icon: HandCoins },
 ];
 
-function TabNav({ active, onChange }) {
+function Sidebar({ active, onChange, onSetGoal, isMobile }) {
+  if (isMobile) {
+    return (
+      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "14px 16px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: C.primary, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <LayoutDashboard size={14} color="#fff" />
+          </div>
+          <span style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 17, color: C.ink }}>Ledger</span>
+        </div>
+        <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 12 }}>
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const isActive = active === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => onChange(t.id)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  border: "none", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                  background: isActive ? C.primarySoft : "transparent",
+                  color: isActive ? C.primary : C.inkMuted,
+                  fontWeight: isActive ? 700 : 600, fontSize: 13,
+                  borderRadius: 9, padding: "8px 12px",
+                }}
+              >
+                <Icon size={15} />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 4,
-        background: C.surfaceSunken,
-        borderRadius: 12,
-        padding: 4,
-        marginBottom: 28,
-        overflowX: "auto",
-      }}
-    >
-      {TABS.map((t) => {
-        const Icon = t.icon;
-        const isActive = active === t.id;
-        return (
-          <button
-            key={t.id}
-            onClick={() => onChange(t.id)}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              border: "none", cursor: "pointer",
-              background: isActive ? C.surface : "transparent",
-              color: isActive ? C.primary : C.inkMuted,
-              fontWeight: isActive ? 700 : 500,
-              fontSize: 13,
-              borderRadius: 9,
-              padding: "8px 14px",
-              boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            <Icon size={15} />
-            {t.label}
-          </button>
-        );
-      })}
+    <div style={{
+      width: 220, flexShrink: 0, display: "flex", flexDirection: "column",
+      borderRight: `1px solid ${C.border}`, minHeight: "100vh", padding: "24px 16px",
+      background: C.surface,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32, padding: "0 6px" }}>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: C.primary, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <LayoutDashboard size={17} color="#fff" />
+        </div>
+        <span style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 19, color: C.ink }}>Ledger</span>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          const isActive = active === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => onChange(t.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                border: "none", cursor: "pointer", textAlign: "left",
+                background: isActive ? C.primarySoft : "transparent",
+                color: isActive ? C.primary : C.inkMuted,
+                fontWeight: isActive ? 700 : 600,
+                fontSize: 14,
+                borderRadius: 9,
+                padding: "10px 12px",
+              }}
+            >
+              <Icon size={17} />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{
+        background: "linear-gradient(160deg, #EFE7F7, #E3EEE9)",
+        borderRadius: 14, padding: "16px 14px", marginTop: 16, marginBottom: 16,
+      }}>
+        <div style={{ width: 30, height: 30, borderRadius: 9, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
+          <TrendingUp size={15} color="#8B6FD9" />
+        </div>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: C.ink }}>Stay on track</div>
+        <div style={{ fontSize: 12, color: C.inkMuted, marginBottom: 12, lineHeight: 1.4 }}>Set goals and track your progress monthly.</div>
+        <button onClick={onSetGoal} style={{ ...btnPrimary, width: "100%", padding: "8px 0", fontSize: 12.5 }}>Set a Goal</button>
+      </div>
     </div>
   );
 }
@@ -178,33 +235,22 @@ function TabNav({ active, onChange }) {
 export default function Ledger() {
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState("overview");
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Income
-  const [income1a, setIncome1a] = useState(0);
-  const [income1b, setIncome1b] = useState(0);
-  const [otherIncome1, setOtherIncome1] = useState(0);
-  const [income2a, setIncome2a] = useState(0);
-  const [income2b, setIncome2b] = useState(0);
-  const [otherIncome2, setOtherIncome2] = useState(0);
+  useEffect(() => {
+    function check() { setIsMobile(window.innerWidth < 880); }
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
-  // Categories / months / transactions
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  // Months data: each month holds its own income, categories, transactions, bills, goals, debts, debtLog
   const [months, setMonths] = useState({});
   const [current, setCurrent] = useState(monthKey(new Date()));
 
-  // Wallets (replaces single bank savings)
+  // Wallets are continuous across months (real money carries forward)
   const [wallets, setWallets] = useState([{ id: "main", name: "Main savings", balance: 0, type: "Debit", color: 0 }]);
   const [walletLog, setWalletLog] = useState([]);
-
-  // Bills
-  const [bills, setBills] = useState([]);
-
-  // Goals
-  const [goals, setGoals] = useState([]);
-
-  // Debts
-  const [debts, setDebts] = useState([]);
-  const [debtLog, setDebtLog] = useState([]);
 
   // UI state
   const [showAddCat, setShowAddCat] = useState(false);
@@ -250,6 +296,44 @@ export default function Ledger() {
 
   const saveTimer = useRef(null);
 
+  /* ---------- Per-month data helpers ---------- */
+  function emptyMonthData() {
+    return {
+      income1a: 0, income1b: 0, otherIncome1: 0,
+      income2a: 0, income2b: 0, otherIncome2: 0,
+      categories: DEFAULT_CATEGORIES.map((c) => ({ ...c, id: uid() })),
+      transactions: [],
+      bills: [],
+      goals: [],
+      debts: [],
+      debtLog: [],
+    };
+  }
+  const monthData = months[current] || emptyMonthData();
+  function updateMonth(updater) {
+    setMonths((prev) => {
+      const base = prev[current] || emptyMonthData();
+      const updated = typeof updater === "function" ? updater(base) : { ...base, ...updater };
+      return { ...prev, [current]: updated };
+    });
+  }
+  const {
+    income1a, income1b, otherIncome1,
+    income2a, income2b, otherIncome2,
+    categories, bills, goals, debts, debtLog,
+  } = monthData;
+  const setIncome1a = (v) => updateMonth((m) => ({ ...m, income1a: v }));
+  const setIncome1b = (v) => updateMonth((m) => ({ ...m, income1b: v }));
+  const setOtherIncome1 = (v) => updateMonth((m) => ({ ...m, otherIncome1: v }));
+  const setIncome2a = (v) => updateMonth((m) => ({ ...m, income2a: v }));
+  const setIncome2b = (v) => updateMonth((m) => ({ ...m, income2b: v }));
+  const setOtherIncome2 = (v) => updateMonth((m) => ({ ...m, otherIncome2: v }));
+  const setCategories = (updater) => updateMonth((m) => ({ ...m, categories: typeof updater === "function" ? updater(m.categories) : updater }));
+  const setBills = (updater) => updateMonth((m) => ({ ...m, bills: typeof updater === "function" ? updater(m.bills) : updater }));
+  const setGoals = (updater) => updateMonth((m) => ({ ...m, goals: typeof updater === "function" ? updater(m.goals) : updater }));
+  const setDebts = (updater) => updateMonth((m) => ({ ...m, debts: typeof updater === "function" ? updater(m.debts) : updater }));
+  const setDebtLog = (updater) => updateMonth((m) => ({ ...m, debtLog: typeof updater === "function" ? updater(m.debtLog) : updater }));
+
   /* ---------- Load ---------- */
   useEffect(() => {
     (async () => {
@@ -257,20 +341,36 @@ export default function Ledger() {
         const result = await window.storage.get(STORAGE_KEY, false);
         if (result && result.value) {
           const d = JSON.parse(result.value);
-          if (d.income1a !== undefined) setIncome1a(d.income1a);
-          if (d.income1b !== undefined) setIncome1b(d.income1b);
-          if (d.otherIncome1 !== undefined) setOtherIncome1(d.otherIncome1);
-          if (d.income2a !== undefined) setIncome2a(d.income2a);
-          if (d.income2b !== undefined) setIncome2b(d.income2b);
-          if (d.otherIncome2 !== undefined) setOtherIncome2(d.otherIncome2);
-          if (d.categories) setCategories(d.categories);
-          if (d.months) setMonths(d.months);
+          let loadedMonths = d.months || {};
+
+          // Backward-compat: migrate old flat (non-per-month) data into the current month
+          const hasOldFlatData = d.income1a !== undefined || d.categories || d.bills || d.goals || d.debts;
+          const currentKey = monthKey(new Date());
+          if (hasOldFlatData && !loadedMonths[currentKey]?.income1a) {
+            loadedMonths = {
+              ...loadedMonths,
+              [currentKey]: {
+                ...emptyMonthData(),
+                ...(loadedMonths[currentKey] || {}),
+                income1a: d.income1a ?? 0,
+                income1b: d.income1b ?? 0,
+                otherIncome1: d.otherIncome1 ?? 0,
+                income2a: d.income2a ?? 0,
+                income2b: d.income2b ?? 0,
+                otherIncome2: d.otherIncome2 ?? 0,
+                categories: d.categories || (loadedMonths[currentKey]?.categories) || emptyMonthData().categories,
+                bills: d.bills || [],
+                goals: d.goals || [],
+                debts: d.debts || [],
+                debtLog: d.debtLog || [],
+                transactions: loadedMonths[currentKey]?.transactions || [],
+              },
+            };
+          }
+
+          setMonths(loadedMonths);
           if (d.wallets) setWallets(d.wallets);
           if (d.walletLog) setWalletLog(d.walletLog);
-          if (d.bills) setBills(d.bills);
-          if (d.goals) setGoals(d.goals);
-          if (d.debts) setDebts(d.debts);
-          if (d.debtLog) setDebtLog(d.debtLog);
         }
       } catch {
         // first run
@@ -287,15 +387,14 @@ export default function Ledger() {
     saveTimer.current = setTimeout(async () => {
       try {
         await window.storage.set(STORAGE_KEY, JSON.stringify({
-          income1a, income1b, otherIncome1, income2a, income2b, otherIncome2,
-          categories, months, wallets, walletLog, bills, goals, debts, debtLog,
+          months, wallets, walletLog,
         }), false);
       } catch {
         // ignore
       }
     }, 400);
     return () => clearTimeout(saveTimer.current);
-  }, [income1a, income1b, otherIncome1, income2a, income2b, otherIncome2, categories, months, wallets, walletLog, bills, goals, debts, debtLog, loaded]);
+  }, [months, wallets, walletLog, loaded]);
 
   if (!loaded) {
     return (
@@ -307,7 +406,7 @@ export default function Ledger() {
   }
 
   /* ---------- Derived ---------- */
-  const txs = months[current]?.transactions || [];
+  const txs = monthData.transactions || [];
   const spentByCat = {};
   for (const c of categories) spentByCat[c.id] = 0;
   for (const t of txs) spentByCat[t.catId] = (spentByCat[t.catId] || 0) + t.amount;
@@ -341,12 +440,11 @@ export default function Ledger() {
     setNewCatName(""); setNewCatBudget(""); setShowAddCat(false);
   }
   function removeCategory(id) {
-    setCategories((p) => p.filter((c) => c.id !== id));
-    setMonths((p) => {
-      const next = { ...p };
-      for (const mk of Object.keys(next)) next[mk] = { ...next[mk], transactions: (next[mk].transactions || []).filter((t) => t.catId !== id) };
-      return next;
-    });
+    updateMonth((m) => ({
+      ...m,
+      categories: m.categories.filter((c) => c.id !== id),
+      transactions: (m.transactions || []).filter((t) => t.catId !== id),
+    }));
   }
   function updateCategoryBudget(id, value) {
     const budget = parseFloat(value);
@@ -356,11 +454,11 @@ export default function Ledger() {
     const amount = parseFloat(txAmount);
     if (!txCat || isNaN(amount) || amount <= 0) return;
     const newTx = { id: uid(), catId: txCat, amount, note: txNote.trim(), method: txMethod, date: txDate };
-    setMonths((p) => { const m = p[current] || { transactions: [] }; return { ...p, [current]: { ...m, transactions: [...(m.transactions || []), newTx] } }; });
+    updateMonth((m) => ({ ...m, transactions: [...(m.transactions || []), newTx] }));
     setTxAmount(""); setTxNote(""); setShowAddTx(false);
   }
   function removeTransaction(id) {
-    setMonths((p) => { const m = p[current] || { transactions: [] }; return { ...p, [current]: { ...m, transactions: (m.transactions || []).filter((t) => t.id !== id) } }; });
+    updateMonth((m) => ({ ...m, transactions: (m.transactions || []).filter((t) => t.id !== id) }));
   }
   const catName = (id) => categories.find((c) => c.id === id)?.name || "Uncategorized";
 
@@ -452,7 +550,7 @@ export default function Ledger() {
 
   /* ---------- Export / Import ---------- */
   function exportData() {
-    const data = { income1a, income1b, otherIncome1, income2a, income2b, otherIncome2, categories, months, wallets, walletLog, bills, goals, debts, debtLog };
+    const data = { months, wallets, walletLog };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -465,20 +563,9 @@ export default function Ledger() {
     reader.onload = (ev) => {
       try {
         const d = JSON.parse(ev.target.result);
-        if (d.income1a !== undefined) setIncome1a(d.income1a);
-        if (d.income1b !== undefined) setIncome1b(d.income1b);
-        if (d.otherIncome1 !== undefined) setOtherIncome1(d.otherIncome1);
-        if (d.income2a !== undefined) setIncome2a(d.income2a);
-        if (d.income2b !== undefined) setIncome2b(d.income2b);
-        if (d.otherIncome2 !== undefined) setOtherIncome2(d.otherIncome2);
-        if (d.categories) setCategories(d.categories);
         if (d.months) setMonths(d.months);
         if (d.wallets) setWallets(d.wallets);
         if (d.walletLog) setWalletLog(d.walletLog);
-        if (d.bills) setBills(d.bills);
-        if (d.goals) setGoals(d.goals);
-        if (d.debts) setDebts(d.debts);
-        if (d.debtLog) setDebtLog(d.debtLog);
         alert("Data imported successfully!");
       } catch { alert("Invalid backup file."); }
     };
@@ -487,34 +574,39 @@ export default function Ledger() {
 
   /* ================= RENDER ================= */
   return (
-    <div style={{ fontFamily: "'Manrope', sans-serif", color: C.ink, background: C.bg, minHeight: "100vh", padding: "1.5rem 1rem 4rem" }}>
+    <div style={{ fontFamily: "'Manrope', sans-serif", color: C.ink, background: C.bg, minHeight: "100vh", display: "flex", flexDirection: isMobile ? "column" : "row" }}>
       <style>{fontImport}</style>
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 10, rowGap: 12 }}>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 26, margin: 0, letterSpacing: "-0.01em", color: C.ink, flexShrink: 0 }}>
-            Ledger
-          </h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, flexShrink: 0 }}>
-            <button onClick={() => setCurrent((c) => shiftMonth(c, -1))} aria-label="Previous month" style={{ ...iconBtn, border: `1px solid ${C.border}`, borderRadius: 8, width: 26, height: 26, justifyContent: "center", background: C.surface, flexShrink: 0 }}>
-              <ChevronLeft size={14} />
-            </button>
-            <span style={{ minWidth: 110, textAlign: "center", fontWeight: 600, whiteSpace: "nowrap" }}>{monthLabel(current)}</span>
-            <button onClick={() => setCurrent((c) => shiftMonth(c, 1))} aria-label="Next month" style={{ ...iconBtn, border: `1px solid ${C.border}`, borderRadius: 8, width: 26, height: 26, justifyContent: "center", background: C.surface, flexShrink: 0 }}>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <button onClick={exportData} style={{ ...btnGhost, whiteSpace: "nowrap", flexShrink: 0, padding: "6px 11px" }}><Download size={13} /> Export</button>
-            <label style={{ ...btnGhost, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, padding: "6px 11px" }}>
-              <Upload size={13} /> Import
-              <input type="file" accept=".json" onChange={importData} style={{ display: "none" }} />
-            </label>
-          </div>
-        </div>
+      <Sidebar active={tab} onChange={setTab} onSetGoal={() => setTab("goals")} isMobile={isMobile} />
 
-        <TabNav active={tab} onChange={setTab} />
+      <div style={{ flex: 1, minWidth: 0, padding: isMobile ? "1rem 1rem 4rem" : "1.5rem 1.75rem 4rem" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10, rowGap: 12 }}>
+            <div>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 26, margin: 0, letterSpacing: "-0.01em", color: C.ink }}>
+                {TABS.find((t) => t.id === tab)?.label || "Ledger"}
+              </h1>
+              <div style={{ fontSize: 13, color: C.inkMuted, marginTop: 2 }}>Here's your financial overview.</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, flexShrink: 0 }}>
+              <button onClick={() => setCurrent((c) => shiftMonth(c, -1))} aria-label="Previous month" style={{ ...iconBtn, border: `1px solid ${C.border}`, borderRadius: 8, width: 26, height: 26, justifyContent: "center", background: C.surface, flexShrink: 0 }}>
+                <ChevronLeft size={14} />
+              </button>
+              <span style={{ minWidth: 110, textAlign: "center", fontWeight: 600, whiteSpace: "nowrap" }}>{monthLabel(current)}</span>
+              <button onClick={() => setCurrent((c) => shiftMonth(c, 1))} aria-label="Next month" style={{ ...iconBtn, border: `1px solid ${C.border}`, borderRadius: 8, width: 26, height: 26, justifyContent: "center", background: C.surface, flexShrink: 0 }}>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <button onClick={exportData} style={{ ...btnGhost, whiteSpace: "nowrap", flexShrink: 0, padding: "6px 11px" }}><Download size={13} /> Export</button>
+              <label style={{ ...btnPrimary, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, padding: "6px 13px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Upload size={13} /> Import
+                <input type="file" accept=".json" onChange={importData} style={{ display: "none" }} />
+              </label>
+            </div>
+          </div>
 
         {/* ============ OVERVIEW TAB ============ */}
         {tab === "overview" && (
@@ -539,13 +631,23 @@ export default function Ledger() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 14 }}>
-              <StatCard label="Total income" value={totalIncome} tone="primary" />
-              <StatCard label="Unpaid bills" value={unpaidBillsTotal} tone="accent" />
-              <StatCard label="Expenses (incl. paid bills)" value={totalExpensesWithBills} tone="bad" />
-              <StatCard label="Remaining" value={remaining} tone={remaining < 0 ? "bad" : "good"} />
+              <StatCard label="Total income" value={totalIncome} tone="primary" icon={Wallet} />
+              <StatCard label="Unpaid bills" value={unpaidBillsTotal} tone="accent" icon={Receipt} />
+              <StatCard label="Expenses (incl. paid bills)" value={totalExpensesWithBills} tone="bad" icon={CheckCircle2} />
+              <StatCard label="Remaining" value={remaining} tone={remaining < 0 ? "bad" : "good"} icon={PiggyBank} />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 28 }}>
-              <StatCard label="Wallet balance" value={totalWalletBalance} tone="accent" />
+
+            <div style={{
+              background: "linear-gradient(120deg, #E3EEE9, #D7EAE2)",
+              borderRadius: 16, padding: "22px 26px", marginBottom: 28,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              position: "relative", overflow: "hidden", minHeight: 92,
+            }}>
+              <div>
+                <div style={{ fontSize: 12, color: C.inkMuted, fontWeight: 600, marginBottom: 6 }}>Wallet balance</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 30, fontWeight: 700, color: C.primary }}>₱{fmt(totalWalletBalance)}</div>
+              </div>
+              <Wallet size={64} color="#0F4C42" style={{ opacity: 0.18, flexShrink: 0 }} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 24, alignItems: "start" }}>
@@ -565,23 +667,28 @@ export default function Ledger() {
                   </Card>
                 )}
                 <Card style={{ padding: 12 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 70px 26px", gap: 6, fontSize: 11, color: C.inkMuted, marginBottom: 6, paddingBottom: 6, borderBottom: `1px solid ${C.border}` }}>
-                    <span>Category</span><span style={{ textAlign: "right" }}>budget</span><span style={{ textAlign: "right" }}>spent</span><span style={{ textAlign: "right" }}>left</span><span />
+                  <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 70px 70px 70px 26px", gap: 6, fontSize: 11, color: C.inkMuted, marginBottom: 6, paddingBottom: 6, borderBottom: `1px solid ${C.border}` }}>
+                    <span /><span>Category</span><span style={{ textAlign: "right" }}>budget</span><span style={{ textAlign: "right" }}>spent</span><span style={{ textAlign: "right" }}>left</span><span />
                   </div>
                   {categories.length === 0 && <div style={{ fontSize: 13, color: C.inkMuted, padding: "8px 0" }}>No envelopes yet — add one above.</div>}
                   {categories.map((c, i) => {
                     const actual = spentByCat[c.id] || 0;
                     const left = c.budget - actual;
+                    const cs = categoryStyle(i);
+                    const CatIcon = cs.icon;
                     return (
                       <div key={c.id}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 70px 26px", gap: 6, alignItems: "center", padding: "8px 0", borderTop: i === 0 ? "none" : `1px solid ${C.border}`, fontSize: 13 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 70px 70px 70px 26px", gap: 6, alignItems: "center", padding: "8px 0", borderTop: i === 0 ? "none" : `1px solid ${C.border}`, fontSize: 13 }}>
+                          <div style={{ width: 26, height: 26, borderRadius: 8, background: cs.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <CatIcon size={13} color={cs.fg} />
+                          </div>
                           <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
                           <input type="number" value={c.budget} onChange={(e) => updateCategoryBudget(c.id, e.target.value)} style={{ ...numInputBase, width: "100%", textAlign: "right", padding: "4px 6px" }} />
                           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "right" }}>₱{fmt(actual)}</span>
                           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "right", color: left < 0 ? C.bad : C.good }}>₱{fmt(Math.abs(left))}</span>
                           <button onClick={() => removeCategory(c.id)} style={iconBtn}><Trash2 size={13} /></button>
                         </div>
-                        <div style={{ marginBottom: 6 }}><MiniBar pct={(actual / (c.budget || 1)) * 100} color={actual > c.budget ? C.bad : C.primary} /></div>
+                        <div style={{ marginBottom: 6, marginLeft: 34 }}><MiniBar pct={(actual / (c.budget || 1)) * 100} color={actual > c.budget ? C.bad : C.primary} /></div>
                       </div>
                     );
                   })}
@@ -907,6 +1014,7 @@ export default function Ledger() {
             </Card>
           </div>
         )}
+        </div>
       </div>
 
       {/* Bill settle modal */}
@@ -1004,12 +1112,25 @@ function IncomeGrid({ items }) {
   );
 }
 
-function StatCard({ label, value, tone }) {
-  const map = { primary: C.primary, good: C.good, bad: C.bad, accent: C.accent };
+function StatCard({ label, value, tone, icon: Icon }) {
+  const map = {
+    primary: { fg: C.primary, bg: C.primarySoft },
+    good: { fg: C.good, bg: C.goodSoft },
+    bad: { fg: C.bad, bg: C.badSoft },
+    accent: { fg: C.accent, bg: C.accentSoft },
+  };
+  const t = map[tone] || { fg: C.ink, bg: C.surfaceSunken };
   return (
     <Card style={{ padding: "14px 16px" }}>
-      <div style={{ fontSize: 11, color: C.inkMuted, fontWeight: 600, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: map[tone] || C.ink }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        {Icon && (
+          <div style={{ width: 30, height: 30, borderRadius: 9, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon size={15} color={t.fg} />
+          </div>
+        )}
+        <div style={{ fontSize: 11, color: C.inkMuted, fontWeight: 600 }}>{label}</div>
+      </div>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: t.fg }}>
         ₱{fmt(Math.abs(value))}
       </div>
     </Card>
