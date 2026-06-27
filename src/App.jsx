@@ -5,6 +5,7 @@ import {
   CheckCircle2, Circle, ArrowDownCircle, ArrowUpCircle, Utensils, ShoppingCart,
   Car, Heart, TrendingUp
 } from "lucide-react";
+import { Analytics } from "@vercel/analytics/react";
 
 /* ---------- Design tokens ---------- */
 const C = {
@@ -1136,6 +1137,7 @@ export default function Ledger() {
           </div>
         </div>
       )}
+      <Analytics />
     </div>
   );
 }
